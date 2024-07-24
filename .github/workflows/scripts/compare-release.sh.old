@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+set -ex
+
+REPO="netbirdio/netbird"
+REMOTE_TAG="$(curl -sL https://api.github.com/repos/"${REPO}"/releases/latest | jq -r '.tag_name')"
+REMOTE_TAG_STRIP="$(t="${REMOTE_TAG}" && echo "${t:1}")"
+LOCAL_TAG="$(grep PKG_VERSION:= custom-feed/netbird/Makefile)"
+LOCAL_TAG_STRIP="$(t="${LOCAL_TAG}" && echo "${t:13}")"
+
+if [[ "$(printf '%s\n%s' "${REMOTE_TAG_STRIP}" "${LOCAL_TAG_STRIP}" | sort --version-sort --check=quiet; echo "${?}")" == 0 ]]; then
+    echo "ok"
+else
+    echo "not ok"
+    sed -i "s/\(PKG_VERSION:=\).*/\1${REMOTE_TAG_STRIP}/" custom-feed/netbird/Makefile
+    curl -sL https://github.com/"${REPO}"/archive/refs/tags/"${REMOTE_TAG}".tar.gz -o temp_pkg
+    SHA256="$(sha256sum temp_pkg | head -c 64 && rm temp_pkg)"
+    sed -i "s/\(PKG_HASH:=\).*/\1${SHA256}/" custom-feed/netbird/Makefile
+    if [[ "${GITHUB_ACTIONS}" = "true" ]]; then
+        echo "sha256=${SHA256}" >> "${GITHUB_OUTPUT}"
+    fi
+fi
