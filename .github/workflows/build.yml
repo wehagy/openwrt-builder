@@ -1,0 +1,87 @@
+# Action to build openwrt images
+---
+name: build openwrt images
+
+on:
+  # Allows manual workflow run (must in default branch to work)
+  workflow_dispatch:
+  # Allows workflow be reusable
+  workflow_call:
+    inputs:
+      commit_long_sha:
+        required: true
+        type: string
+#  push:
+#    branches:
+#      - main
+#    paths:
+#      - 'custom-feed/**'
+
+jobs:
+  build-openwrt-image:
+    runs-on: ubuntu-24.04
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          # W
+          - "x86 64 generic"
+          - "ath79 generic tplink_archer-c7-v4"
+          - "mediatek filogic xiaomi_mi-router-ax3000t-ubootmod"
+          # P
+          - "ramips mt7621 totolink_x5000r"
+          - "mediatek filogic bananapi_bpi-r3"
+#        include:
+#          # W
+#          - target: "x86"
+#            subtarget: "64"
+#            profile: "generic"
+#          - target: "ath79"
+#            subtarget: "generic"
+#            profile: "tplink_archer-c7-v4"
+#          - target: "mediatek"
+#            subtarget: "filogic"
+#            profile: "xiaomi_mi-router-ax3000t-ubootmod"
+#          # P
+#          - target: "ramips"
+#            subtarget: "mt7621"
+#            profile: "totolink_x5000r"
+#          - target: "mediatek"
+#            subtarget: "filogic"
+#            profile: "bananapi_bpi-r3"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        #with:
+        #  ref: ${{ inputs.commit_long_sha }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+#      - name: Login to Docker Hub
+#        uses: docker/login-action@v3
+#        with:
+#          username: ${{ secrets.DOCKERHUB_USERNAME }}
+#          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name : Build
+        run: ./owpib ${{ matrix.image }} --install luci-app-uhttpd
+#      - name: Build and push
+#        uses: docker/build-push-action@v6
+#        with:
+#          build-args: |
+#            TARGET=${{ matrix.target }}
+#            SUBTARGET=${{ matrix.subtarget }}
+#            IMAGE_PROFILE=${{ matrix.profile }}
+#          outputs: type=local,dest=${{ matrix.profile }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: openwrt ${{ matrix.image }}
+          path: build-output/openwrt-*

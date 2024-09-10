@@ -1,0 +1,419 @@
+#!/usr/bin/env bash
+# vim: textwidth=80 colorcolumn=+1
+# vim: softtabstop=2 shiftwidth=2 tabstop=2 expandtab
+
+# This script manages container operations for OpenWrt builds
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2024-2025 Wesley Gimenes <wehagy@proton.me>
+# See LICENSE for the full license text.
+
+set -o errexit  # Exit immediately if a command exits with a non-zero status
+set -o nounset  # Treat unset variables as an error
+set -o pipefail # Returns the exit status of the last failed command in the pipeline
+#set -x          # Print commands and their arguments as they are executed
+
+show_help() {
+  cat <<EOF
+Usage: $(basename "${0}") <TARGET> <SUBTARGET> <PROFILE> [RELEASE] [OPTION]
+
+Arguments:
+  TARGET      Target architecture.
+  SUBTARGET   Subtarget architecture.
+  PROFILE     Profile for the image.
+  RELEASE     Optional release version, default is 'main'.
+
+Note: All options must start with '--' (double dash), not a single dash '-'.
+
+Options:
+  --h,  --help
+              Display this help and exit.
+  --ns, --no-sdk 
+              Disable SDK build.
+  --ni, --no-imagebuilder
+              Disable ImageBuilder build.
+  --i,  --install <packages>
+              Packages to include in the build, separated by space.
+              This option appends to previous package values,
+              default is 'luci luci-ssl'.
+  --r,  --remove <packages>
+              Packages to exclude in the build, separated by space.
+              This option appends to previous package values.
+  --dr, --dry-run
+              Make nothing, just print the Dockerfile to stdout.
+EOF
+  exit 0
+}
+
+error_exit() {
+  printf '%s\n' "Error: ${1}" >&2
+  exit 1
+}
+
+# Check and set the container manager (Docker or Podman)
+if command -v docker &>/dev/null; then
+  CONTAINER_MANAGER="docker"
+elif command -v podman &>/dev/null; then
+  CONTAINER_MANAGER="podman"
+else
+  error_exit "container manager not found, please install Docker or Podman"
+fi
+
+# Check if the necessary arguments were provided
+[[ "${#}" -lt 3 ]] && show_help
+
+TARGET="${1}"
+SUBTARGET="${2}"
+PROFILE="${3}"
+
+if [[ "${#}" -ge 4 && ! "${4}" =~ ^-- ]]; then
+  RELEASE="${4}"
+  shift 4
+else
+  RELEASE="main"
+  shift 3
+fi
+
+PACKAGES="luci luci-ssl"
+NPROC="$(nproc)"
+ROOTFS_SIZE=""
+CONTAINER_REGISTRY="ghcr.io"
+CONTAINER_TAG="${TARGET}-${SUBTARGET}-${RELEASE}"
+
+DRY_RUN="false"
+STAGE_IMAGEBUILDER="true"
+STAGE_SDK="true"
+
+while [[ "${#}" -ge 1 ]]; do
+  case "${1}" in
+    --ns | --no-sdk)
+      if [[ "${STAGE_IMAGEBUILDER}" == "false" ]]; then
+        error_exit "--no-imagebuilder|--ni and ${1} cannot be used together."
+      fi
+      STAGE_SDK="false"
+      shift
+      ;;
+
+    --ni | --no-imagebuilder)
+      if [[ "${STAGE_SDK}" == "false" ]]; then
+        error_exit "${1} and --no-sdk|--ns cannot be used together."
+      fi
+      STAGE_IMAGEBUILDER="false"
+      shift
+      ;;
+
+    --i | --install)
+      if [[ "${#}" -eq 1 ]]; then
+        error_exit "${1} requires a package argument."
+      else
+        shift
+      fi
+      while true; do
+        if [[ "${#}" -eq 0 || "${1}" =~ ^-- ]]; then
+          break
+        fi
+          PACKAGES+=" ${1}"
+          shift
+      done
+      ;;
+
+    --r | --remove)
+      if [[ "${#}" -eq 1 ]]; then
+        error_exit "${1} requires a package argument."
+      else
+        shift
+      fi
+      while true; do
+        if [[ "${#}" -eq 0 || "${1}" =~ ^-- ]]; then
+          break
+        fi
+          PACKAGES+=" -${1}"
+          shift
+      done
+      ;;
+
+    --dr | --dry-run)
+      DRY_RUN="true"
+      shift
+      ;;
+
+    --h | --help)
+      show_help
+      ;;
+
+    -[^-]*)
+      error_exit "All options must start with '--' (double dash)."
+      ;;
+
+    *)
+      error_exit "invalid option '${1}'."
+      ;;
+  esac
+done
+
+setup_script() {
+  cat <<"SETUP_SCRIPT"
+RUN <<"EOF"
+#!/usr/bin/env bash  
+
+set -euxo pipefail
+
+# Breaking change from upstream see commit below
+# https://github.com/openwrt/docker/commit/9b55784
+[[ -x setup.sh ]] && ./setup.sh
+EOF
+SETUP_SCRIPT
+}
+
+check_true() {
+  local bool="${1}"
+  local message="${2:-}"
+
+  if [[ "${bool}" == "true" ]]; then
+    if [[ -z "${message}" ]]; then
+      cat
+    else
+      printf '%s\n' "${message}"
+    fi
+  fi
+}
+
+dockerfile_sdk() {
+  local patch_custom="true"
+  local patch_upstream="true"
+
+  shopt -s nullglob
+
+  local custom_feed=(custom-feed/*/)
+  local patches=(patches/{base,luci,packages,routing,telephony}/*.patch)
+
+  if [[ "${#custom_feed[@]}" -gt 0 ]]; then
+    local custom_feed_packages
+    for dir in "${custom_feed[@]#*/}"; do
+      custom_feed_packages+=" ${dir%/}"
+    done
+    printf '%s\n' "Directories '${custom_feed_packages}' found inside 'custom-feed'."
+    PACKAGES+="${custom_feed_packages}"
+  else
+    printf '%s\n' "No directories found inside 'custom-feed'."
+    patch_custom="false"
+  fi
+
+  if [[ "${#patches[@]}" -eq 0 ]]; then
+    if [[ "$patch_custom" == "false" ]]; then
+      error_exit '%s\n' "SDK active but no patches to apply, aborting..."
+    fi
+      patch_upstream="false"
+  fi
+
+  shopt -u nullglob
+
+  printf '%s\n\n' \
+"FROM ${CONTAINER_REGISTRY}/openwrt/sdk:${CONTAINER_TAG} AS stage-sdk"
+
+  check_true "${patch_custom}" \
+"COPY --chown=buildbot custom-feed/ custom-feed/"
+
+  check_true "${patch_upstream}" \
+"COPY --chown=buildbot patches/ patches/"
+
+  cat <<SDK-01
+
+$(setup_script)
+
+RUN <<"EOF"
+#!/usr/bin/env bash
+
+set -euxo pipefail
+
+# Modifies the feeds.conf.default and write to feeds.conf
+# 1. Inserts the line 'src-link custom /builder/custom-feed' at the top.
+# 2. Replaces URLs from 'git.openwrt.org' with 'github.com/openwrt'.
+sed --regexp-extended \\
+  --expression '1i src-link custom /builder/custom-feed' \\
+  --expression 's,git\.openwrt\.org/(openwrt|feed|project),github\.com/openwrt,' \\
+  feeds.conf.default > feeds.conf
+
+# Make the feeds
+./scripts/feeds update -a
+EOF
+
+SDK-01
+
+  check_true "${patch_custom}" <<"SDK-02"
+RUN <<"EOF"
+#!/usr/bin/env bash
+
+set -euxo pipefail
+
+# Probably a little bit broken
+# Replaces 'include ../../lang' with 'include $(TOPDIR)/feeds/packages/lang'
+# to use a macro for the include path, making it more flexible.
+sed --in-place \
+  's,include ../../lang,include $(TOPDIR)/feeds/packages/lang,g' \
+  custom-feed/*/Makefile \
+  || true
+
+EOF
+
+SDK-02
+  
+  check_true "${patch_upstream}" <<SDK-03
+RUN <<"EOF"
+#!/usr/bin/env bash
+
+set -euxo pipefail
+
+$( \
+  for patch in "${patches[@]#*/}"; do
+    cat <<APPLY_PATCH
+printf '%s\n' "Applying patch: ${patch##*/}"
+git apply \\
+  --directory="feeds/${patch%/*}" \\
+  "patches/${patch}"
+APPLY_PATCH
+  done
+)
+EOF
+
+SDK-03
+
+  cat <<SDK-04
+RUN <<"EOF"
+#!/usr/bin/env bash
+
+set -euxo pipefail
+
+# Generates a default configuration file for the build process.
+make defconfig
+
+# Iterate over all items in the custom-feed directory and patch files
+compile_packages() {
+  # Enable nullglob, unmatched glob patterns expand to an empty string,
+  # instead of the pattern itself,
+  # (e.g., '*.ipk' will return nothing if no .ipk files exist).
+  shopt -s nullglob
+
+  ls custom-feed/* patches/*/*.patch \\
+    | xargs -n1 basename \\
+    | cut -d'-' -f1
+
+  shopt -u nullglob
+}
+
+for package in "\$(compile_packages)"; do
+  # Compile the package using all available CPU cores
+  ./scripts/feeds install "\${package}" 
+  make package/"\${package}"/compile \\
+    -j${NPROC}
+done
+
+# Enable recursive globbing for directory matching
+shopt -s globstar
+
+# Clear unused artifacts
+rm --force --recursive \\
+  bin/**/tmp/ \\
+  bin/targets/
+
+# Disable recursive globbing to restore default behavior
+shopt -u globstar
+EOF
+SDK-04
+}
+
+dockerfile_imagebuilder() {
+  local custom_files="false"
+
+  printf '\n%s\n\n' \
+"FROM ${CONTAINER_REGISTRY}/openwrt/imagebuilder:${CONTAINER_TAG} \
+AS stage-imagebuilder"
+
+  check_true "${STAGE_SDK}" \
+"COPY --from=stage-sdk --chown=buildbot /builder/bin/ bin/"
+
+  check_true "${custom_files}" \
+"COPY --chown=buildbot custom-files/ custom-files/"
+
+  cat <<IMAGEBUILDER-01
+
+$(setup_script)
+
+RUN <<"EOF"
+#!/usr/bin/env bash
+
+set -euxo pipefail
+
+PACKAGES="${PACKAGES}"
+PROFILE="${PROFILE}"
+ROOTFS_SIZE="${ROOTFS_SIZE}"
+NPROC="${NPROC}"
+
+IMAGEBUILDER-01
+
+  check_true "${STAGE_SDK}" <<"IMAGEBUILDER-02"
+shopt -s globstar nullglob
+
+# Creates relative symbolic links for all *.{ipk,apk} files under bin,
+# linking them to the packages directory.
+for pkg in bin/**/*.{ipk,apk}; do
+  ln --symbolic --relative \
+    "${pkg}" packages/
+  pkg="${pkg##*/}"
+  PACKAGES+=" ${pkg%%[-_][0-9]*}"
+done
+
+shopt -u globstar nullglob
+
+IMAGEBUILDER-02
+
+  cat <<"IMAGEBUILDER-03"
+make image \
+  FILES="custom-files/" \
+  PACKAGES="${PACKAGES}" \
+  PROFILE="${PROFILE}" \
+  ROOTFS_PARTSIZE="${ROOTFS_SIZE}" \
+  -j"${NPROC}" \
+EOF
+IMAGEBUILDER-03
+}
+
+dockerfile_export() {
+  check_true "${STAGE_SDK}" <<<"$(dockerfile_sdk)"
+
+	check_true "${STAGE_IMAGEBUILDER}" <<<"$(dockerfile_imagebuilder)"
+
+  printf '\n%s\n\n' \
+"FROM scratch AS stage-export"
+
+  check_true "${STAGE_SDK}" \
+"COPY --from=stage-sdk /builder/bin/ ."
+
+  check_true "${STAGE_IMAGEBUILDER}" \
+"COPY --from=stage-imagebuilder /builder/bin/ ."
+}
+
+build_artifacts() {
+  local timestamp    
+  # Current date and time in 'YYYY.MM.DD_HH.MM.SS' format
+  printf -v timestamp "%(%Y.%m.%d_%H.%M.%S)T"
+  
+  # Arguments for running the container
+  local args=(
+    build 
+    --progress plain
+    --output "build-output/openwrt-${TARGET}-${SUBTARGET}-${PROFILE}-${timestamp}"
+    -f- . # Read Dockerfile from stdin and use current directory as context
+  )
+  # 'cat' Dockerfile if simulate is true,
+  # or build the container image using the Docker or Podman.
+  if [[ "${DRY_RUN}" == "true" ]]; then
+    dockerfile_export
+  else
+		dockerfile_export \
+			| "${CONTAINER_MANAGER}" "${args[@]}"
+  fi
+}
+
+build_artifacts
+
+exit 0
