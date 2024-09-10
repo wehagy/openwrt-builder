@@ -1,0 +1,56 @@
+# Action to build openwrt images
+---
+name: build openwrt images
+
+on:
+  # Allows manual workflow run (must in default branch to work)
+  workflow_dispatch:
+  # Allows workflow be reusable
+  workflow_call:
+    inputs:
+      commit_long_sha:
+        required: true
+        type: string
+#  push:
+#    branches:
+#      - main
+#    paths:
+#      - 'custom-feed/**'
+
+jobs:
+  build-openwrt-image:
+    runs-on: ubuntu-24.04
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          # W
+          - "x86 64 generic"
+          - "ath79 generic tplink_archer-c7-v4"
+          - "mediatek filogic xiaomi_mi-router-ax3000t-ubootmod"
+          # P
+          - "ramips mt7621 totolink_x5000r"
+          - "mediatek filogic bananapi_bpi-r3"
+
+    steps:
+      - name: Checkout repo from main if run from compare-release
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_long_sha }}
+
+      - name: Build image
+        run: |
+          sudo apt update \
+            && sudo apt install -y quilt
+          ./openwrt-builder.sh ${{ matrix.image }}
+
+      - name: Prepare artifact name
+        run: |
+          echo "artifact_name=$(t="${{ matrix.image }}" && echo "${t##* }")" >> "$GITHUB_ENV"
+
+      - name: Upload openwrt image artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.artifact_name }}
+          path: openwrt-*
