@@ -20,6 +20,9 @@ on:
 jobs:
   build-openwrt-image:
     runs-on: ubuntu-24.04
+    #container:
+    #  image: quay.io/containers/podman:v5.2
+    #  options: --privileged
     
     strategy:
       fail-fast: false
@@ -41,8 +44,19 @@ jobs:
 
       - name: Build image
         run: |
-          sudo apt update \
-            && sudo apt install -y quilt
+          #dnf \
+          #  --refresh \
+          #  --assumeyes \
+          #  --nodocs \
+          #  --setopt=install_weak_deps=False \
+          #    upgrade
+          #dnf \
+          #  --assumeyes \
+          #  --nodocs \
+          #  --setopt=install_weak_deps=False \
+          #    install \
+          #      quilt
+          #podman info
           ./openwrt-builder.sh ${{ matrix.image }}
 
       - name: Prepare artifact name
