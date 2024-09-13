@@ -5,6 +5,11 @@
 # SPDX-FileCopyrightText: 2024 Wesley Gimenes <wehagy@proton.me>
 # See LICENSE for the full license text.
 
+
+# sed -i -e 's,--- a/net,--- a/custom-feed,g' -e 's,+++ b/net,+++ b/custom-feed,g' patches/podman-200-update_to_5.2.2.patch
+# sed -i 's,include ../..,include $(TOPDIR)/feeds/packages,g' custom-feed/*/Makefile
+# quilt add custom-feed/*/Makefile
+# quilt refresh
 set -euxo pipefail
 
 # Check and set the container manager (Podman or Docker)
@@ -27,7 +32,6 @@ PACKAGES_IMAGE+=(
     luci
     luci-ssl
     luci-app-attendedsysupgrade
-    luci-app-watchcat
     "${TMP[@]}"
 )
 unset TMP
@@ -45,10 +49,12 @@ build () {
     CONTAINER_IMAGEBUILDER_IMAGE="${CONTAINER_PREFIX}/imagebuilder:${CONTAINER_TAG}"
 
     CONTAINER_COMMON_ARGS=(
+        --transient-store
         run
         --rm
-        --user 0:0
         --pull always
+        #--userns keep-id
+        --image-volume tmpfs
         --volume "${PWD}"/bin/:/builder/bin/
         "$([[ -d custom-feed ]] && printf -- '--volume %s/custom-feed/:/builder/custom-feed/:ro' "${PWD}" || true)"
     )
@@ -58,15 +64,24 @@ build () {
         "${CONTAINER_SDK_IMAGE}"
         bash -c "
             # Update feeds and build packages
-            sed --regexp-extended --in-place 's,git\.openwrt\.org\/(openwrt|feed|project),github\.com\/openwrt,' feeds.conf.default
-            sed --in-place '1i src-link custom /builder/custom-feed' feeds.conf.default
+            sed \
+                --in-place \
+                --regexp-extended \
+                    's,git\.openwrt\.org\/(openwrt|feed|project),github\.com\/openwrt,' \
+                    feeds.conf.default
+            sed \
+                --in-place \
+                    '1i src-link custom /builder/custom-feed' \
+                    feeds.conf.default
             ./scripts/feeds update -a
             make defconfig
 
             # Logic to build additional packages
             for PACKAGE in custom-feed/*; do
                 ./scripts/feeds install \"\${PACKAGE##*/}\"
-                make package/\"\${PACKAGE##*/}\"/{clean,compile} -j \"\$( nproc )\"
+                make package/\"\${PACKAGE##*/}\"/{clean,compile} \
+                    V=s \
+                    -j \"\$( nproc )\"
             done
 
             # Clean
@@ -88,7 +103,11 @@ build () {
                 ln -sr \"\${IPK}\" packages/
             done
             shopt -u globstar nullglob
-            make image PROFILE=${PROFILE_IMAGE} PACKAGES=\"${PACKAGES_IMAGE[*]}\"
+
+            make image \
+                V=s \
+                -j \"\$( nproc )\" \
+                PROFILE=${PROFILE_IMAGE} PACKAGES=\"${PACKAGES_IMAGE[*]}\"
         "
     )
 
