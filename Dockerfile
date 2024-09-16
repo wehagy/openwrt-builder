@@ -75,7 +75,7 @@ FROM ghcr.io/openwrt/imagebuilder:x86-64-main AS imagebuilder-stage
 ENV PROFILE_IMAGE="${PROFILE_IMAGE:-generic}"
 ENV PACKAGES_IMAGE="${PACKAGES_IMAGE:-luci luci-ssl}"
 
-ONBUILD COPY --from=sdk-packages-stage --chown=buildbot /builder/packages/* /builder/packages/
+COPY --from=sdk-packages-stage --chown=buildbot /builder/packages/* /builder/packages/
 
 COPY --chmod=755 <<"EOF" build.sh
 #!/usr/bin/env bash
@@ -98,5 +98,5 @@ RUN ./build.sh
 
 
 FROM scratch AS export-stage
-ONBUILD COPY --from=sdk-packages-stage /builder/bin/ .
+COPY --from=sdk-packages-stage /builder/bin/ .
 COPY --from=imagebuilder-stage /builder/bin/ .
