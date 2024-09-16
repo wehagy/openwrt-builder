@@ -38,15 +38,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.commit_long_sha }}
+      
+      - name: Prepare artifact name
+        run: |
+          echo "artifact_name=openwrt-x86" >> "$GITHUB_ENV"
+          #echo "artifact_name=$(t="${{ matrix.image }}" && echo "${t##* }")" >> "$GITHUB_ENV"
 
       - name: Build image
         run: |
-          docker build --rm --output openwrt .
-
-      - name: Prepare artifact name
-        run: |
-          echo "openwrt-x86"
-          #echo "artifact_name=$(t="${{ matrix.image }}" && echo "${t##* }")" >> "$GITHUB_ENV"
+          docker build --rm --output type=local,dest=openwrt-x86 .
+          ls -la openwrt-x86
 
       - name: Upload openwrt image artifacts
         uses: actions/upload-artifact@v4
