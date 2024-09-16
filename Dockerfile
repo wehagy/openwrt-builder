@@ -13,7 +13,11 @@ USER buildbot
 COPY --chmod=755 <<"EOF" build.sh
 #!/usr/bin/env bash
 
-set -eux
+
+set -e
+set -u
+set -x
+set -o pipefail
 
 quilt push -a
 sed \
@@ -40,13 +44,16 @@ RUN ./build.sh
 
 
 FROM sdk-stage AS sdk-packages-stage
-COPY --chmod=755 <<"EOF" build.sh
+COPY --chmod=755 <<"EOF" clean.sh
 #!/usr/bin/env bash
 
-set -eux
+set -e
+set -u
+set -x
+set -o pipefail
 
 rm -rf bin/targets/
-rmdir bin/packages/*/custom/tmp
+rmdir bin/packages/*/custom/tmp || true
 shopt -s extglob
 rm -rf bin/packages/*/!(custom)
 shopt -u extglob
@@ -57,8 +64,9 @@ for IPK in bin/**/custom/*.ipk; do
   cp "${IPK}" packages/
 done
 shopt -u globstar nullglob
+
 EOF
-RUN ./build.sh
+RUN ./clean.sh
 
 
 
@@ -66,15 +74,22 @@ FROM ghcr.io/openwrt/imagebuilder:x86-64-main AS imagebuilder-stage
 
 ENV PROFILE_IMAGE="${PROFILE_IMAGE:-generic}"
 ENV PACKAGES_IMAGE="${PACKAGES_IMAGE:-luci luci-ssl}"
-COPY --from=sdk-packages-stage --chown=buildbot /builder/packages/* /builder/packages/
+
+ONBUILD COPY --from=sdk-packages-stage --chown=buildbot /builder/packages/* /builder/packages/
+
 COPY --chmod=755 <<"EOF" build.sh
 #!/usr/bin/env bash
 
-set -eux
+set -e
+set -u
+set -x
+set -o pipefail
 
-PACKAGES_IMAGE+=("$(basename -a packages/*.ipk | cut -d '_' -f 1)")
+shopt -s globstar nullglob
+PACKAGES_IMAGE+="$(basename -a packages/*.ipk | awk -F'_' '{printf " %s", $1}')" || true
+shopt -u globstar nullglob
 
-make image PROFILE=${PROFILE_IMAGE} PACKAGES="${PACKAGES_IMAGE[*]}" \
+make image PROFILE="${PROFILE_IMAGE}" PACKAGES="${PACKAGES_IMAGE}" \
   V=s \
   -j"$(nproc)"
 EOF
@@ -83,5 +98,5 @@ RUN ./build.sh
 
 
 FROM scratch AS export-stage
-COPY --from=sdk-packages-stage /builder/bin/ .
+ONBUILD COPY --from=sdk-packages-stage /builder/bin/ .
 COPY --from=imagebuilder-stage /builder/bin/ .
