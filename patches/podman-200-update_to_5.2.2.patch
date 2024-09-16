@@ -1,0 +1,303 @@
+# https://github.com/openwrt/packages/pull/24977
+# https://patch-diff.githubusercontent.com/raw/openwrt/packages/pull/24977.patch
+From 6bf1ad7bffe469d574c81fb609fe9fd95ed84762 Mon Sep 17 00:00:00 2001
+From: Tianling Shen <cnsztl@immortalwrt.org>
+Date: Sun, 15 Sep 2024 16:15:22 +0800
+Subject: [PATCH 1/6] conmon: Update to 2.1.12
+
+Refreshed patches.
+
+Signed-off-by: Tianling Shen <cnsztl@immortalwrt.org>
+---
+ utils/conmon/Makefile                           | 6 +++---
+ utils/conmon/patches/010-remove-libdl-dep.patch | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/utils/conmon/Makefile b/utils/conmon/Makefile
+index 11afc5ef65f48..56467aef49cec 100644
+--- a/custom-feed/conmon/Makefile
++++ b/custom-feed/conmon/Makefile
+@@ -1,12 +1,12 @@
+ include $(TOPDIR)/rules.mk
+
+ PKG_NAME:=conmon
+-PKG_VERSION:=2.1.10
++PKG_VERSION:=2.1.12
+ PKG_RELEASE:=1
+
+ PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+-PKG_SOURCE_URL:=https://github.com/containers/$(PKG_NAME)/archive/v$(PKG_VERSION)
+-PKG_HASH:=455fabcbd4a5a5dc5e05374a71b62dc0b08ee865c2ba398e9dc9acac1ea1836a
++PKG_SOURCE_URL:=https://github.com/containers/conmon/archive/v$(PKG_VERSION)
++PKG_HASH:=842f0b5614281f7e35eec2a4e35f9f7b9834819aa58ecdad8d0ff6a84f6796a6
+
+ PKG_MAINTAINER:=Oskari Rauta <oskari.rauta@gmail.com>
+ PKG_LICENSE:=Apache-2.0
+diff --git a/utils/conmon/patches/010-remove-libdl-dep.patch b/utils/conmon/patches/010-remove-libdl-dep.patch
+index bcfb4d005ec2c..53ebe1b8561a1 100644
+--- a/custom-feed/conmon/patches/010-remove-libdl-dep.patch
++++ b/custom-feed/conmon/patches/010-remove-libdl-dep.patch
+@@ -1,6 +1,6 @@
+ --- a/meson.build
+ +++ b/meson.build
+-@@ -90,7 +90,7 @@ executable('conmon',
++@@ -87,7 +87,7 @@ executable('conmon',
+              'src/utils.h',
+              'src/seccomp_notify.c',
+              'src/seccomp_notify.h'],
+
+From 66eae7b4d9a2fc8f93b27a64185881d69f3eaced Mon Sep 17 00:00:00 2001
+From: Tianling Shen <cnsztl@immortalwrt.org>
+Date: Sun, 15 Sep 2024 16:15:36 +0800
+Subject: [PATCH 2/6] crun: Update to 1.17
+
+Signed-off-by: Tianling Shen <cnsztl@immortalwrt.org>
+---
+ utils/crun/Makefile | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/utils/crun/Makefile b/utils/crun/Makefile
+index f9522c471ceee..86e2d9df5f438 100644
+--- a/custom-feed/crun/Makefile
++++ b/custom-feed/crun/Makefile
+@@ -1,12 +1,12 @@
+ include $(TOPDIR)/rules.mk
+
+ PKG_NAME:=crun
+-PKG_VERSION:=1.15
++PKG_VERSION:=1.17
+ PKG_RELEASE:=1
+
+ PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+ PKG_SOURCE_URL:=https://codeload.github.com/containers/crun/tar.gz/$(PKG_VERSION)?
+-PKG_HASH:=357ebf4b391284d29176e1a638cff8f47569595db66c272c558241e4f807c600
++PKG_HASH:=f106f6adb752af5e0a867e226440e9ddaaf2d7400149d181f171b78ca19ad5e5
+
+ PKG_BUILD_DEPENDS:=argp-standalone
+ PKG_BUILD_PARALLEL:=1
+@@ -32,13 +32,13 @@ define Package/crun/description
+   A fast and low-memory footprint OCI Container Runtime fully written in C.
+ endef
+
+-LIBOCISPEC_COMMIT:=7b27d0a0bb87fdd7ee46365994e450a58405004f
++LIBOCISPEC_COMMIT:=68211ccc41201c45ad276b04c7f67d61e80b1f7a
+
+ define Download/libocispec
+   PROTO:=git
+   URL:=https://github.com/containers/libocispec.git
+   VERSION:=$(LIBOCISPEC_COMMIT)
+-  MIRROR_HASH:=45562d4650b509e97d145a90a7fda07c9855f79ee96190cfd4181ae619fcc037
++  MIRROR_HASH:=688d00600dbdf46d4b52acc8e43313b14471026ccff8c3cc5983e2f5dfd15571
+   FILE:=libocispec-$(LIBOCISPEC_COMMIT).tar.xz
+   SUBDIR:=libocispec
+ endef
+
+From 25a3645b19b52c1edc2584045249977e215ba2c2 Mon Sep 17 00:00:00 2001
+From: Tianling Shen <cnsztl@immortalwrt.org>
+Date: Sun, 15 Sep 2024 16:15:50 +0800
+Subject: [PATCH 3/6] slirp4netns: Update to 1.3.1
+
+Signed-off-by: Tianling Shen <cnsztl@immortalwrt.org>
+---
+ net/slirp4netns/Makefile | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/slirp4netns/Makefile b/net/slirp4netns/Makefile
+index 3ef882a697adb..271d66cd074ec 100644
+--- a/custom-feed/slirp4netns/Makefile
++++ b/custom-feed/slirp4netns/Makefile
+@@ -1,12 +1,12 @@
+ include $(TOPDIR)/rules.mk
+
+ PKG_NAME:=slirp4netns
+-PKG_VERSION:=1.2.3
++PKG_VERSION:=1.3.1
+ PKG_RELEASE:=1
+
+ PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+ PKG_SOURCE_URL:=https://github.com/rootless-containers/slirp4netns/archive/v$(PKG_VERSION)
+-PKG_HASH:=acce648fab8fe5f113c41a8fd6d20177708519b4ddaa60f845e1998a17b22ca5
++PKG_HASH:=a3b7c7b593b279c46d25a48b583371ab762968e98b6a46457d8d52a755852eb9
+
+ PKG_MAINTAINER:=Oskari Rauta <oskari.rauta@gmail.com>
+ PKG_LICENSE:=GPL-2.0-or-later
+
+From 721aeb39b15653315788bb1f5b66ebac6bbcac31 Mon Sep 17 00:00:00 2001
+From: Tianling Shen <cnsztl@immortalwrt.org>
+Date: Sun, 15 Sep 2024 16:16:05 +0800
+Subject: [PATCH 4/6] netavark: Update to 1.12.2
+
+Signed-off-by: Tianling Shen <cnsztl@immortalwrt.org>
+---
+ net/netavark/Makefile | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/netavark/Makefile b/net/netavark/Makefile
+index 2296ed9b12c24..04b78e2b54120 100644
+--- a/custom-feed/netavark/Makefile
++++ b/custom-feed/netavark/Makefile
+@@ -1,12 +1,12 @@
+ include $(TOPDIR)/rules.mk
+
+ PKG_NAME:=netavark
+-PKG_VERSION:=1.10.3
++PKG_VERSION:=1.12.2
+ PKG_RELEASE:=1
+
+ PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+ PKG_SOURCE_URL:=https://codeload.github.com/containers/netavark/tar.gz/v$(PKG_VERSION)?
+-PKG_HASH:=fdc3010cb221f0fcef0302f57ef6f4d9168a61f9606238a3e1ed4d2e348257b7
++PKG_HASH:=d1e5a7e65b825724fd084b0162084d9b61db8cda1dad26de8a07be1bd6891dbc
+
+ PKG_MAINTAINER:=Oskari Rauta <oskari.rauta@gmail.com>
+ PKG_LICENSE:=Apache-2.0
+
+From 12d823c9dda88d9b9d674ba860c42d958d4abc9b Mon Sep 17 00:00:00 2001
+From: Tianling Shen <cnsztl@immortalwrt.org>
+Date: Sun, 15 Sep 2024 16:16:15 +0800
+Subject: [PATCH 5/6] aardvark-dns: Update to 1.12.2
+
+Signed-off-by: Tianling Shen <cnsztl@immortalwrt.org>
+---
+ net/aardvark-dns/Makefile | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/aardvark-dns/Makefile b/net/aardvark-dns/Makefile
+index 23dcd3aab3f0e..7bae2dd2fea2c 100644
+--- a/custom-feed/aardvark-dns/Makefile
++++ b/custom-feed/aardvark-dns/Makefile
+@@ -1,12 +1,12 @@
+ include $(TOPDIR)/rules.mk
+
+ PKG_NAME:=aardvark-dns
+-PKG_VERSION:=1.11.0
++PKG_VERSION:=1.12.2
+ PKG_RELEASE:=1
+
+ PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+ PKG_SOURCE_URL:=https://codeload.github.com/containers/aardvark-dns/tar.gz/v$(PKG_VERSION)?
+-PKG_HASH:=3e95b363f89a945ee6e63f51051f9eb982bdc469bf8e727b5d7adca676789750
++PKG_HASH:=19317d97525c19135b31f76101b9c13bf2b009cecfc11f467b2ab30fb2641867
+
+ PKG_MAINTAINER:=Oskari Rauta <oskari.rauta@gmail.com>
+ PKG_LICENSE:=Apache-2.0
+
+From ed8c288101b70d0b950c5637b127b766339a9e6d Mon Sep 17 00:00:00 2001
+From: Tianling Shen <cnsztl@immortalwrt.org>
+Date: Sun, 15 Sep 2024 16:29:17 +0800
+Subject: [PATCH 6/6] podman: Update to 5.2.2
+
+- Cleanup Makefile
+- Refresh patches
+- Simplify go tags
+- Separate go tags with space due to upstream change
+- Remove vars which are indentical to upstream or empty
+- Invoke built-in go vars instead of duplicating one by one
+
+Signed-off-by: Tianling Shen <cnsztl@immortalwrt.org>
+---
+ utils/podman/Makefile                         | 42 +++++--------------
+ .../patches/010-do-not-build-docs.patch       |  4 +-
+ 2 files changed, 13 insertions(+), 33 deletions(-)
+
+diff --git a/utils/podman/Makefile b/utils/podman/Makefile
+index b8b4c571b04a3..838e4137e369b 100644
+--- a/custom-feed/podman/Makefile
++++ b/custom-feed/podman/Makefile
+@@ -1,12 +1,12 @@
+ include $(TOPDIR)/rules.mk
+
+ PKG_NAME:=podman
+-PKG_VERSION:=5.0.0
++PKG_VERSION:=5.2.2
+ PKG_RELEASE:=1
+
+ PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+ PKG_SOURCE_URL:=https://github.com/containers/podman/archive/v$(PKG_VERSION)
+-PKG_HASH:=818db636955a1eeec4dcb586d18783ab86a8afd07e3f4adaf25920b3697316c9
++PKG_HASH:=571658f175d61724269c1a20626c1e39424af59b7bcf7ff94135d03b790bbecb
+
+ PKG_LICENSE:=Apache-2.0
+ PKG_LICENSE_FILES:=LICENSE
+@@ -39,7 +39,9 @@ define Package/podman
+   CATEGORY:=Utilities
+   TITLE:=Podman
+   URL:=https://podman.io
+-  DEPENDS:=$(GO_ARCH_DEPENDS) +conmon +libgpgme +libseccomp +nsenter +zoneinfo-simple +kmod-veth +slirp4netns +netavark +aardvark-dns +catatonit +crun +PODMAN_SELINUX_SUPPORT:libselinux
++  DEPENDS:=$(GO_ARCH_DEPENDS) +conmon +libgpgme +libseccomp +nsenter \
++	+zoneinfo-simple +kmod-veth +slirp4netns +netavark +aardvark-dns \
++	+catatonit +crun +PODMAN_SELINUX_SUPPORT:libselinux
+ endef
+
+ define Package/podman/description
+@@ -64,42 +66,20 @@ define Package/podman/conffiles
+ /etc/containers/networks/podman.json
+ endef
+
++GO_PKG_TAGS:=seccomp exclude_graphdriver_devicemapper apparmor
+ ifdef CONFIG_PODMAN_SELINUX_SUPPORT
+-  GO_PKG_TAGS=seccomp,exclude_graphdriver_devicemapper,selinux,apparmor
+-else
+-  GO_PKG_TAGS=seccomp,exclude_graphdriver_devicemapper,apparmor
++  GO_PKG_TAGS+= selinux
+ endif
+
+ MAKE_VARS += \
+-	GO_INSTALL_BIN_PATH="$(strip $(GO_PKG_INSTALL_BIN_PATH))" \
+-	BUILD_DIR="$(PKG_BUILD_DIR)" \
+-	GO_BUILD_DIR="$(GO_PKG_BUILD_DIR)" \
+-	GO_BUILD_BIN_DIR="$(GO_PKG_BUILD_BIN_DIR)" \
+-	GO_BUILD_DEPENDS_PATH="$(GO_PKG_BUILD_DEPENDS_PATH)" \
+-	GO_BUILD_DEPENDS_SRC="$(GO_PKG_BUILD_DEPENDS_SRC)" \
+-	GOOS="$(GO_OS)" \
+-	GOARCH="$(GO_ARCH)" \
+-	CC="$(TARGET_CC)" \
+-	CXX="$(TARGET_CXX)" \
+-	CGO_CFLAGS="$(filter-out $(GO_CFLAGS_TO_REMOVE),$(TARGET_CFLAGS))" \
+-	CGO_CPPFLAGS="$(TARGET_CPPFLAGS)" \
+-	CGO_CXXFLAGS="$(filter-out $(GO_CFLAGS_TO_REMOVE),$(TARGET_CXXFLAGS))" \
+-	CGO_LDFLAGS="$(TARGET_LDFLAGS)" \
+-	GOPATH="$(GO_PKG_BUILD_DIR)" \
+-	GOCACHE="$(GO_BUILD_CACHE_DIR)" \
+-	GOMODCACHE="$(GO_MOD_CACHE_DIR)" \
+-	GOFLAGS="$(GO_PKG_GCFLAGS)" \
+-	GO_PKG_CFLAGS="$(GO_PKG_CFLAGS)" \
+-	CGO_ENABLED=1 \
+-	GOENV=off \
++	$(GO_GENERAL_BUILD_CONFIG_VARS) \
++	$(GO_PKG_BUILD_CONFIG_VARS) \
++	$(GO_PKG_VARS) \
+ 	PREFIX=/usr \
+ 	LIBEXECDIR=/usr/lib \
+ 	LIBEXECPODMAN=/usr/lib/podman \
+-	SHAREDIR_CONTAINERS=/usr/share/containers \
+-	ETCDIR=/etc \
+ 	TMPFILESDIR=/var/run/podman \
+-	BUILDTAGS="$(GO_PKG_TAGS)" \
+-	EXTRA_LDFLAGS="$(GO_PKG_LDFLAGS)"
++	BUILDTAGS="$(GO_PKG_TAGS)"
+
+ define Build/Prepare
+ 	$(call Build/Prepare/Default)
+diff --git a/utils/podman/patches/010-do-not-build-docs.patch b/utils/podman/patches/010-do-not-build-docs.patch
+index ab9a51a26d1ad..6e2d4730296c4 100644
+--- a/custom-feed/podman/patches/010-do-not-build-docs.patch
++++ b/custom-feed/podman/patches/010-do-not-build-docs.patch
+@@ -1,6 +1,6 @@
+ --- a/Makefile
+ +++ b/Makefile
+-@@ -227,7 +227,7 @@ GV_VERSION=v0.7.3
++@@ -230,7 +230,7 @@ GV_VERSION=v0.7.4
+  default: all
+
+  .PHONY: all
+@@ -9,7 +9,7 @@
+
+  .PHONY: binaries
+  ifeq ($(shell uname -s),FreeBSD)
+-@@ -810,7 +810,7 @@ rpm-install: package  ## Install rpm pac
++@@ -853,7 +853,7 @@ rpm-install: package  ## Install rpm pac
+  	/usr/bin/podman info  # will catch a broken conmon
+
+  .PHONY: install
+
