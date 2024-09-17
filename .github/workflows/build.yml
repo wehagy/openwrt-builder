@@ -74,10 +74,10 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           build-args: |
-            TARGET=${{ matrix.include.target }}
-            SUBTARGET=${{ matrix.include.subtarget }}
-            IMAGE_PROFILE=${{ matrix.include.profile }}
-          outputs: type=local,dest=${{ matrix.include.profile }}
+            TARGET=${{ matrix.target }}
+            SUBTARGET=${{ matrix.subtarget }}
+            IMAGE_PROFILE=${{ matrix.profile }}
+          outputs: type=local,dest=${{ matrix.profile }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
