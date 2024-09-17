@@ -57,30 +57,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-<<<<<<< HEAD
         #with:
         #  ref: ${{ inputs.commit_long_sha }}
-=======
-        with:
-          ref: ${{ inputs.commit_long_sha }}
-
-      - name: Build image
-        run: |
-          dnf \
-            --refresh \
-            --assumeyes \
-            --nodocs \
-            --setopt=install_weak_deps=False \
-              upgrade
-          dnf \
-            --assumeyes \
-            --nodocs \
-            --setopt=install_weak_deps=False \
-              install \
-                quilt
-          podman info
-          ./openwrt-builder.sh ${{ matrix.image }}
->>>>>>> 7cdeea9 (build)
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
