@@ -14,5 +14,11 @@ set -o pipefail
 # sed -i 's,include ../..,include $(TOPDIR)/feeds/packages,g' custom-feed/*/Makefile
 # quilt add custom-feed/*/Makefile
 # quilt refresh
+# https://github.com/openwrt/openwrt/blob/7e1d0925526a104364630b7af5355b799ef884d9/target/imagebuilder/files/Makefile#L43-L55
 
-docker build --rm --output type=local,dest=openwrt-x86 .
+docker build \
+    --build-arg TARGET=x86 \
+    --build-arg SUBTARGET=64 \
+    --build-arg IMAGE_PROFILE=generic \
+    --progress plain \
+    --output type=local,dest=openwrt-x86 .

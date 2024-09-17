@@ -21,17 +21,16 @@ jobs:
   build-openwrt-image:
     runs-on: ubuntu-24.04
     
-#    strategy:
-#      fail-fast: false
-#      matrix:
-#        image:
-#          # W
-#          - "x86 64 generic"
-#          - "ath79 generic tplink_archer-c7-v4"
-#          - "mediatek filogic xiaomi_mi-router-ax3000t-ubootmod"
-#          # P
-#          - "ramips mt7621 totolink_x5000r"
-#          - "mediatek filogic bananapi_bpi-r3"
+    strategy:
+      fail-fast: false
+      matrix:
+          # W
+          - "x86 64 generic"
+          - "ath79 generic tplink_archer-c7-v4"
+          - "mediatek filogic xiaomi_mi-router-ax3000t-ubootmod"
+          # P
+          - "ramips mt7621 totolink_x5000r"
+          - "mediatek filogic bananapi_bpi-r3"
 
     steps:
       - name: Checkout
@@ -39,10 +38,12 @@ jobs:
         #with:
         #  ref: ${{ inputs.commit_long_sha }}
 
-      - name: Prepare artifact name
+      - name: Prepare build environment variables
         run: |
-          echo "artifact_name=openwrt-x86" >> "$GITHUB_ENV"
-          #echo "artifact_name=$(t="${{ matrix.image }}" && echo "${t##* }")" >> "$GITHUB_ENV"
+          read -r target subtarget profile <<< ${{ matrix.image }}
+          printf '%s' "target=${target}" >> "${GITHUB_ENV}"
+          printf '%s' "subtarget=${subtarget}" >> "${GITHUB_ENV}"
+          printf '%s' "profile=${profile}" >> "${GITHUB_ENV}"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -50,21 +51,24 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      #- name: Login to Docker Hub
-      #  uses: docker/login-action@v3
-      #  with:
-      #    username: ${{ secrets.DOCKERHUB_USERNAME }}
-      #    password: ${{ secrets.DOCKERHUB_TOKEN }}
+#      - name: Login to Docker Hub
+#        uses: docker/login-action@v3
+#        with:
+#          username: ${{ secrets.DOCKERHUB_USERNAME }}
+#          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
 
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          #push: true
-          outputs: type=local,dest=${{ env.artifact_name }}
+          build-args: |
+            TARGET=${{ env.target }}
+            SUBTARGET=${{ env.subtarget }}
+            IMAGE_PROFILE=${{ env.profile }}
+          outputs: type=local,dest=${{ env.profile }}
 
-      - name: Upload openwrt image artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.artifact_name }}
+          name: ${{ env.profile }}
           path: openwrt-*
