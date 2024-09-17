@@ -20,9 +20,9 @@ on:
 jobs:
   build-openwrt-image:
     runs-on: ubuntu-24.04
-    container:
-      image: quay.io/containers/podman:v5.2
-      options: --privileged
+    #container:
+    #  image: quay.io/containers/podman:v5.2
+    #  options: --privileged
     
     strategy:
       fail-fast: false
