@@ -67,7 +67,7 @@ ARG IMAGE_PROFILE="${IMAGE_PROFILE:?Please set profile image}"
 ENV IMAGE_PROFILE="${IMAGE_PROFILE}"
 ARG IMAGE_PACKAGES="${IMAGE_PACKAGES:-luci luci-ssl}"
 ENV IMAGE_PACKAGES="${IMAGE_PACKAGES}"
-ARG ROOTFS_SIZE=""
+ARG ROOTFS_SIZE="128"
 ENV ROOTFS_SIZE="${ROOTFS_SIZE}"
 
 COPY --from=sdk-stage --chown=buildbot /builder/bin/ bin/
