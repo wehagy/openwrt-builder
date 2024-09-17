@@ -44,6 +44,7 @@ jobs:
           printf '%s' "target=$(cut -d' ' -f1 <<< ${{ matrix.images }})" >> "${GITHUB_ENV}"
           printf '%s' "subtarget=$(cut -d' ' -f2 <<< ${{ matrix.images }})" >> "${GITHUB_ENV}"
           printf '%s' "profile=$(cut -d' ' -f3 <<< ${{ matrix.images }})" >> "${GITHUB_ENV}"
+          echo ${{ env.subtarget }} ${{ env.profile }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
