@@ -24,6 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        images:
           # W
           - "x86 64 generic"
           - "ath79 generic tplink_archer-c7-v4"
@@ -40,7 +41,7 @@ jobs:
 
       - name: Prepare build environment variables
         run: |
-          read -r target subtarget profile <<< ${{ matrix.image }}
+          read -r target subtarget profile <<< ${{ matrix.images }}
           printf '%s' "target=${target}" >> "${GITHUB_ENV}"
           printf '%s' "subtarget=${subtarget}" >> "${GITHUB_ENV}"
           printf '%s' "profile=${profile}" >> "${GITHUB_ENV}"
