@@ -41,9 +41,9 @@ jobs:
 
       - name: Prepare build environment variables
         run: |
-          printf '%s' "target=$(cut -d' ' -f1 <<< \"${{ matrix.images }}\")" >> "${GITHUB_ENV}"
-          printf '%s' "subtarget=$(cut -d' ' -f2 <<< \"${{ matrix.images }}\")" >> "${GITHUB_ENV}"
-          printf '%s' "profile=$(cut -d' ' -f3 <<< \"${{ matrix.images }}\")" >> "${GITHUB_ENV}"
+          printf '%s' target=$(cut -d' ' -f1 <<< "${{ matrix.images }}") >> "${GITHUB_ENV}"
+          printf '%s' subtarget=$(cut -d' ' -f2 <<< "${{ matrix.images }}") >> "${GITHUB_ENV}"
+          printf '%s' profile=$(cut -d' ' -f3 <<< "${{ matrix.images }}") >> "${GITHUB_ENV}"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
