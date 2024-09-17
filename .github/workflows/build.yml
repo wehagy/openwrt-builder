@@ -24,26 +24,38 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        images:
+        include:
           # W
-          - "x86 64 generic"
-          - "ath79 generic tplink_archer-c7-v4"
-          - "mediatek filogic xiaomi_mi-router-ax3000t-ubootmod"
+          - target: "x86"
+            subtarget: "64"
+            profile: "generic"
+          - target: "ath79"
+            subtarget: "generic"
+            profile: "tplink_archer-c7-v4"
+          - target: "mediatek"
+            subtarget: "filogic"
+            profile: "xiaomi_mi-router-ax3000t-ubootmod"
           # P
-          - "ramips mt7621 totolink_x5000r"
-          - "mediatek filogic bananapi_bpi-r3"
+          - target: "ramips"
+            subtarget: "mt7621"
+            profile: "totolink_x5000r"
+          - target: "mediatek"
+            subtarget: "filogic"
+            profile: "bananapi_bpi-r3"
+#        images:
+#          # W
+#          - "x86 64 generic"
+#          - "ath79 generic tplink_archer-c7-v4"
+#          - "mediatek filogic xiaomi_mi-router-ax3000t-ubootmod"
+#          # P
+#          - "ramips mt7621 totolink_x5000r"
+#          - "mediatek filogic bananapi_bpi-r3"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         #with:
         #  ref: ${{ inputs.commit_long_sha }}
-
-      - name: Prepare build environment variables
-        run: |
-          printf '%s' target=$(cut -d' ' -f1 <<< "${{ matrix.images }}") >> "${GITHUB_ENV}"
-          printf '%s' subtarget=$(cut -d' ' -f2 <<< "${{ matrix.images }}") >> "${GITHUB_ENV}"
-          printf '%s' profile=$(cut -d' ' -f3 <<< "${{ matrix.images }}") >> "${GITHUB_ENV}"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -62,10 +74,10 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           build-args: |
-            TARGET=${{ env.target }}
-            SUBTARGET=${{ env.subtarget }}
-            IMAGE_PROFILE=${{ env.profile }}
-          outputs: type=local,dest=${{ env.profile }}
+            TARGET=${{ matrix.include.target }}
+            SUBTARGET=${{ matrix.include.subtarget }}
+            IMAGE_PROFILE=${{ matrix.include.profile }}
+          outputs: type=local,dest=${{ matrix.include.profile }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
