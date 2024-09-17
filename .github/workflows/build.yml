@@ -80,7 +80,7 @@ jobs:
             TARGET=${{ matrix.target }}
             SUBTARGET=${{ matrix.subtarget }}
             IMAGE_PROFILE=${{ matrix.profile }}
-          outputs: type=local,dest=${{ matrix.profile }}
+          outputs: type=local,dest=openwrt-${{ matrix.profile }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
