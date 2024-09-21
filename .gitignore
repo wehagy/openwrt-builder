@@ -1,2 +1,12 @@
-/.pc/
-/bin/
+# Ignore build artifacts.
+build-output/*
+
+# Ignore custom files that may contain sensitive data
+# or user-specific configurations, such as local settings
+# and credentials.
+custom-files/*
+
+# Include .gitkeep files in empty directories to ensure
+# they are tracked by git, as git does not track empty
+# directories by default.
+!**/.gitkeep
