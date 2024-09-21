@@ -1,2 +1,3 @@
-/.pc/
-/bin/
+build-output/*
+customfiles/*
+!**/.gitkeep

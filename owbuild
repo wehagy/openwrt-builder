@@ -1,0 +1,303 @@
+#!/usr/bin/env bash
+
+# This script manages container operations for OpenWrt builds
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2024 Wesley Gimenes <wehagy@proton.me>
+# See LICENSE for the full license text.
+
+set -euxo pipefail
+
+show_help() {
+cat <<EOF
+Usage: $(basename "${0}") <TARGET> <SUBTARGET> <IMAGE_PROFILE> [RELEASE]
+
+TARGET         The target architecture.
+SUBTARGET      The subtarget architecture.
+IMAGE_PROFILE  The profile for the image.
+RELEASE        (Optional) The release version, default is 'main'.
+
+Note: All options must start with '--' (double dash), not a single dash '-'.
+
+Options:
+  --ns, --no-sdk             Disable SDK build.
+  --ni, --no-imagebuilder    Disable ImageBuilder build.
+  --np, --no-patch           Disable patch.
+  --if, --image-files <dir>  Specify the directory for image files, default is 'custom-files/'.
+  --p, --packages <packages> Specify additional packages to include in the build,
+  multiple packages can be specified separated by spaces (e.g., --packages package1 package2),
+  use a leading '-' to remove a package (e.g., --packages -package1 -package2),
+  this option appends to any previous package values and does not replace them,
+  default is 'luci luci-ssl', to remove the default packages, use: '-luci -luci-ssl'.
+EOF
+exit 0
+}
+
+# Check if the necessary arguments were provided
+[[ "${#}" -lt 3 ]] && show_help
+
+
+TARGET="${1}"
+SUBTARGET="${2}"
+IMAGE_PROFILE="${3}"
+
+# Check and set the container manager (Docker or Podman)
+if command -v docker &>/dev/null; then
+    CONTAINER_MANAGER="docker"
+elif command -v podman &>/dev/null; then
+    CONTAINER_MANAGER="podman"
+else
+    printf '%s/n' "ERROR: no container manager found, please install podman or docker"
+    exit 1
+fi
+
+# Defaults
+RELEASE="main"
+IMAGE_FILES="${IMAGE_FILES:-custom-files/}"
+IMAGE_PACKAGES="${IMAGE_PACKAGES:-luci luci-ssl}"
+CONTAINER_REGISTRY="${CONTAINER_REGISTRY:-ghcr.io}"
+ROOTFS_SIZE=""
+SDK_STAGE="true"
+IMAGEBUILDER_STAGE="true"
+NPROC="$(nproc)"
+PATCH="true"
+
+if [[ "${#}" -ge 4 && ! "${4}" =~ ^-- ]]; then
+    RELEASE="${4}"
+    shift 4
+else
+    shift 3
+fi
+
+CONTAINER_TAG="${TARGET}-${SUBTARGET}-${RELEASE}"
+
+while [[ "${#}" -ge 1 ]]; do
+    case "${1}" in
+        --ns|--no-sdk)
+            if [[ "${IMAGEBUILDER_STAGE}" == "false" ]]; then
+                printf '%s\n' "Error: --no-imagebuilder/--ni and --no-sdk/--ns cannot be used together."
+                exit 1
+            fi
+            SDK_STAGE="false"
+            shift
+            ;;
+
+        --ni|--no-imagebuilder)
+            if [[ "${SDK_STAGE}" == "false" ]]; then
+                printf '%s\n' "Error: --no-imagebuilder/--ni and --no-sdk/--ns cannot be used together."
+                exit 1
+            fi
+            IMAGEBUILDER_STAGE="false"
+            shift
+            ;;
+
+        --np|--no-patch)
+            PATCH="false"
+            shift
+            ;;
+
+        --if|--image-files)
+	    if [[ "${#}" -eq 1 ]]; then
+                printf '%s\n' "Error: "${1}" requires a directory argument."
+                exit 1
+            else
+                IMAGE_FILES="${2}"
+                shift 2
+            fi
+            ;;
+
+        --p|--packages)
+            if [[ "${#}" -eq 1 ]]; then
+                printf '%s\n' "Error: "${1}" requires a package argument."
+                exit 1
+            else
+                shift
+            fi
+            while true; do
+                if [[ "${#}" -eq 0 || "${1}" =~ ^-- ]]; then
+                    break
+                fi
+                IMAGE_PACKAGES+=" ${1}"
+                shift
+            done
+    	    ;;
+
+        -*)
+            printf '%s\n' "Error: Invalid option: ${1}"
+            exit 1
+            ;;
+
+        *)
+            break
+            ;;
+    esac
+done
+
+shopt -s globstar nullglob
+IMAGE_PACKAGES+="$(basename -a custom-feed/* | awk '{printf " %s", $1}')" || true
+shopt -u globstar nullglob
+
+echo $IMAGE_PACKAGES
+
+build_artifact() {
+    local timestamp
+    printf -v timestamp "%(%Y.%m.%d-%H.%M.%S)T"
+    "${CONTAINER_MANAGER}" build \
+        --progress plain \
+        --output "build-output/openwrt-${TARGET}-${SUBTARGET}-${IMAGE_PROFILE}-${timestamp}" \
+        -f- .
+}
+
+dockerfile_sdk() {
+cat <<DOCKERFILE_SDK
+FROM "${CONTAINER_REGISTRY}/openwrt/sdk:${CONTAINER_TAG}" AS sdk-stage
+
+COPY --chown=buildbot custom-feed/ custom-feed/
+
+$({
+if [[ "${PATCH}" == "true" ]]; then
+    printf '%s' "COPY --chown=buildbot patches/ patches/"
+fi
+})
+
+COPY --chmod=755 <<"EOF" build-package.sh
+#!/usr/bin/env bash
+
+set -euxo pipefail
+
+$({
+if [[ "${PATCH}" == "true" ]]; then
+cat <<"EOF"
+# Applies all patch files from the patches directory to the custom-feed directory
+git apply \
+    -p2 \
+    --intent-to-add \
+    --directory=custom-feed \
+    patches/*.patch
+EOF
+fi
+})
+
+# Updates Makefile(s) in custom-feed directories
+# Replaces 'include ../../lang' with 'include \$(TOPDIR)/feeds/packages/lang'
+# to use a variable for the include path, making it more flexible.
+sed --in-place \\
+    's,include ../../lang,include \$(TOPDIR)/feeds/packages/lang,g' \\
+    custom-feed/*/Makefile
+
+# Modify the feeds.conf.default file:
+# 1. Replaces repository URLs from git.openwrt.org with github.com/openwrt.
+# 2. Adds a line at the beginning of the file to include
+# a custom feed located at /builder/custom-feed.
+sed --in-place \\
+    --regexp-extended \\
+    --expression 's,git\.openwrt\.org\/(openwrt|feed|project),github\.com\/openwrt,' \\
+    --expression '1i src-link custom /builder/custom-feed' \\
+    feeds.conf.default
+
+./scripts/feeds update -a
+make defconfig
+
+# Iterate over all items in the custom-feed directory,
+# install the corresponding feed, and clean and compile
+# the associated package using all available CPU cores.
+for package in custom-feed/*; do
+    ./scripts/feeds install "\${package##*/}"
+    make package/"\${package##*/}"/{clean,compile} \\
+        -j${NPROC}
+done
+
+# Clean up build artifacts
+shopt -s extglob
+rm \\
+    --recursive \\
+    --force \\
+    bin/targets/ \\
+    bin/packages/*/custom/tmp \\
+    bin/packages/*/!(custom)
+shopt -u extglob
+
+EOF
+RUN ./build-package.sh
+
+
+DOCKERFILE_SDK
+}
+
+dockerfile_imagebuilder() {
+cat <<DOCKERFILE_IMAGEBUILDER
+FROM "${CONTAINER_REGISTRY}/openwrt/imagebuilder:${CONTAINER_TAG}" AS imagebuilder-stage
+
+$({
+if [[ "${SDK_STAGE}" == "true" ]]; then
+    printf '%s' "COPY --from=sdk-stage --chown=buildbot /builder/bin/ bin/"
+fi
+})
+
+COPY --chown=buildbot "${IMAGE_FILES}" custom-files/
+
+COPY --chmod=755 <<"EOF" build-image.sh
+#!/usr/bin/env bash
+
+set -euxo pipefail
+
+$({
+# Check if the SDK is true, and if so, print a loop that
+if [[ "${SDK_STAGE}" == "true" ]]; then
+cat <<"EOF"
+# Creates relative symbolic links for all *.ipk files
+# in custom directories under bin, linking them to the
+# packages directory.
+shopt -s globstar nullglob
+for ipk in bin/**/custom/*.ipk; do
+    ln --symbolic --relative "${ipk}" packages/
+done
+shopt -u globstar nullglob
+EOF
+fi
+})
+
+make image \\
+    PROFILE="${IMAGE_PROFILE}" \\
+    PACKAGES="${IMAGE_PACKAGES}" \\
+    FILES="${IMAGE_FILES}" \\
+    ROOTFS_PARTSIZE="${ROOTFS_SIZE}" \\
+    -j${NPROC}
+EOF
+
+RUN ./build-image.sh
+
+DOCKERFILE_IMAGEBUILDER
+}
+
+dockerfile_export() {
+cat <<DOCKERFILE_EXPORT
+FROM scratch AS export-stage
+
+$({
+if [[ "${SDK_STAGE}" == "true" ]]; then
+    printf '%s\n' "COPY --from=sdk-stage /builder/bin/ ."
+fi
+if [[ "${IMAGEBUILDER_STAGE}" == "true" ]]; then
+    printf '%s\n' "COPY --from=imagebuilder-stage /builder/bin/ ."
+fi
+})
+
+DOCKERFILE_EXPORT
+}
+
+
+build_artifact <<DOCKERFILE_FINAL
+
+$({
+if [[ "${SDK_STAGE}" == "true" ]]; then
+    dockerfile_sdk
+fi
+if [[ "${IMAGEBUILDER_STAGE}" == "true" ]]; then
+    dockerfile_imagebuilder
+fi
+dockerfile_export
+})
+
+DOCKERFILE_FINAL
+
+exit 0
