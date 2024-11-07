@@ -1,0 +1,28 @@
+From 3be43536463049e19203afadf49a9422ca799a90 Mon Sep 17 00:00:00 2001
+From: Wesley Gimenes <wehagy@proton.me>
+Date: Thu, 12 Dec 2024 12:46:13 -0300
+Subject: [PATCH] netbird: remove workaround for musl
+
+Signed-off-by: Wesley Gimenes <wehagy@proton.me>
+---
+ net/netbird/Makefile | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/net/netbird/Makefile b/net/netbird/Makefile
+index 88149d1704fee..4190c0dda63b7 100644
+--- a/net/netbird/Makefile
++++ b/net/netbird/Makefile
+@@ -44,12 +44,6 @@ define Package/netbird/conffiles
+ /etc/netbird/config.json
+ endef
+ 
+-# Workaround for musl 1.2.4 compability in mattn/go-sqlite3
+-# https://github.com/mattn/go-sqlite3/issues/1164
+-ifneq ($(CONFIG_USE_MUSL),)
+-	TARGET_CFLAGS += -D_LARGEFILE64_SOURCE
+-endif
+-
+ define Package/netbird/install
+ 	$(call GoPackage/Package/Install/Bin,$(PKG_INSTALL_DIR))
+ 	$(INSTALL_DIR) $(1)/usr/bin $(1)/etc/init.d
+
