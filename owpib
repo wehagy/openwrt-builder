@@ -191,10 +191,10 @@ dockerfile_sdk() {
     for dir in "${custom_feed[@]#*/}"; do
       custom_feed_packages+=" ${dir%/}"
     done
-    printf '%s\n' "Directories '${custom_feed_packages}' found inside 'custom-feed'."
+    #printf '%s\n' "Directories '${custom_feed_packages}' found inside 'custom-feed'."
     PACKAGES+="${custom_feed_packages}"
   else
-    printf '%s\n' "No directories found inside 'custom-feed'."
+    #printf '%s\n' "No directories found inside 'custom-feed'."
     patch_custom="false"
   fi
 
@@ -304,7 +304,7 @@ for package in "\$(compile_packages)"; do
   # Compile the package using all available CPU cores
   ./scripts/feeds install "\${package}" 
   make package/"\${package}"/compile \\
-    -j${NPROC}
+    -j${NPROC} V=s
 done
 
 # Enable recursive globbing for directory matching

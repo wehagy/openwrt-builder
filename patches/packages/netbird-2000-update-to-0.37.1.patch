@@ -1,0 +1,31 @@
+From 66dabdd952da69305b0bf9544bea807560f92525 Mon Sep 17 00:00:00 2001
+From: Wesley Gimenes <wehagy@proton.me>
+Date: Mon, 24 Feb 2025 20:11:17 -0300
+Subject: [PATCH] netbird: update to 0.37.1
+
+changelog: https://github.com/netbirdio/netbird/releases/tag/v0.37.1
+
+Signed-off-by: Wesley Gimenes <wehagy@proton.me>
+---
+ net/netbird/Makefile | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/netbird/Makefile b/net/netbird/Makefile
+index 2db3b7cb5..8e506d21e 100644
+--- a/net/netbird/Makefile
++++ b/net/netbird/Makefile
+@@ -1,12 +1,12 @@
+ include $(TOPDIR)/rules.mk
+ 
+ PKG_NAME:=netbird
+-PKG_VERSION:=0.37.0
++PKG_VERSION:=0.37.1
+ PKG_RELEASE:=1
+ 
+ PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+ PKG_SOURCE_URL:=https://codeload.github.com/netbirdio/netbird/tar.gz/v$(PKG_VERSION)?
+-PKG_HASH:=e920e7036c16954e6c3d768633851c4db8d256013a48ec363af68287d970acca
++PKG_HASH:=8ef1eae6732df65c9ee06b381f9e121e4740e6e8d53119b0ba8572934105a70d
+ 
+ PKG_MAINTAINER:=Wesley Gimenes <wehagy@proton.me>
+ PKG_LICENSE:=BSD-3-Clause
